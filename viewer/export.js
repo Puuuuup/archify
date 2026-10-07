@@ -1556,8 +1556,7 @@
         syncReachShare: syncReachShareItem,
         syncTarget: syncExportTarget,
         selectTarget: selectExportTarget,
-        target: function () { return exportTarget; },
-        targetParent: function () { return exportParentId; }
+        target: function () { return exportTarget; }
       };
 
       // Auto-open on page load for demo/screenshot purposes: ?openExport=1

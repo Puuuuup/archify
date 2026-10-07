@@ -838,7 +838,7 @@ test('all authored children download independently without opening a child view'
         await Archify.exportMenu.run('svg');
         var blob = window.exportBlobs.filter(b => b.type.startsWith('image/svg+xml')).at(-1);
         var svg = new DOMParser().parseFromString(await blob.text(), 'image/svg+xml').documentElement;
-        return { parent: Archify.focus.active(), child: Archify.subarchitecture.active(), targetParent: Archify.exportMenu.targetParent(),
+        return { parent: Archify.focus.active(), child: Archify.subarchitecture.active(), targetParent: document.querySelector('[data-export-parent][aria-checked="true"]')?.dataset.exportParent || null,
           scroll: [scrollX, scrollY], hash: location.hash, preset: svg.getAttribute('data-preset'),
           mounted: document.querySelectorAll('#subarchitecture-mount > svg').length,
           nodeIds: Array.from(svg.querySelectorAll('[data-node-id]')).map(n => n.getAttribute('data-node-id')).sort(),
@@ -896,13 +896,13 @@ test('export selection stays independent of the open child and survives closing 
       await Archify.layoutStability.whenStable();
       await Archify.exportMenu.run('svg');
       var svg = new DOMParser().parseFromString(await window.lastSvg.text(), 'image/svg+xml').documentElement;
-      var open = { view: Archify.subarchitecture.active(), target: Archify.exportMenu.targetParent(),
+      var open = { view: Archify.subarchitecture.active(), target: document.querySelector('[data-export-parent][aria-checked="true"]')?.dataset.exportParent || null,
         nodeIds: Array.from(svg.querySelectorAll('[data-node-id]')).map(n => n.getAttribute('data-node-id')).sort() };
       Archify.exportMenu.selectTarget('subarchitecture', 'mot');
       Archify.subarchitecture.close({ updateUrl: false, restoreFocus: false });
       await Archify.exportMenu.run('svg');
       var closedSvg = new DOMParser().parseFromString(await window.lastSvg.text(), 'image/svg+xml').documentElement;
-      return { open: open, closed: { view: Archify.subarchitecture.active(), target: Archify.exportMenu.targetParent(),
+      return { open: open, closed: { view: Archify.subarchitecture.active(), target: document.querySelector('[data-export-parent][aria-checked="true"]')?.dataset.exportParent || null,
         nodeIds: Array.from(closedSvg.querySelectorAll('[data-node-id]')).map(n => n.getAttribute('data-node-id')).sort() } };
     })()`);
     const input = JSON.parse(fs.readFileSync(path.join(repoRoot, 'website/examples/bagel-inference.architecture.json'), 'utf8'));
