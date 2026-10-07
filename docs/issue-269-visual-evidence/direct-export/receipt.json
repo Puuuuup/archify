@@ -1,0 +1,125 @@
+{
+  "sourceCommit": "2b380808737f5582a36b0e4b7d34d150aed07d18",
+  "viewport": [
+    1366,
+    768
+  ],
+  "receipts": [
+    {
+      "example": "transformer-layer",
+      "parent": null,
+      "filename": "transformer-model-overview.svg",
+      "nodeIds": [
+        "hidden_states",
+        "tokens",
+        "transformer"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "transformer-layer",
+      "parent": "transformer",
+      "filename": "transformer-model-overview-transformer-internals.svg",
+      "nodeIds": [
+        "attention",
+        "ffn",
+        "layer_input",
+        "norm_1",
+        "norm_2",
+        "residual_1",
+        "residual_2"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "bagel-inference",
+      "parent": null,
+      "filename": "bagel-interleaved-inference.svg",
+      "nodeIds": [
+        "context",
+        "decoder",
+        "flow",
+        "image_output",
+        "inputs",
+        "mot",
+        "text_output"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "bagel-inference",
+      "parent": "context",
+      "filename": "bagel-interleaved-inference-context-internals.svg",
+      "nodeIds": [
+        "cache",
+        "connector",
+        "image",
+        "project",
+        "text",
+        "tokenize",
+        "vae",
+        "vit"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "bagel-inference",
+      "parent": "mot",
+      "filename": "bagel-interleaved-inference-mot-internals.svg",
+      "nodeIds": [
+        "add1",
+        "add2",
+        "attention",
+        "input",
+        "norm1",
+        "norm2",
+        "textffn",
+        "vaeffn"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "lance-query",
+      "parent": null,
+      "filename": "lance-dataset-query.svg",
+      "nodeIds": [
+        "batches",
+        "bridge",
+        "fragments",
+        "planner",
+        "python",
+        "runtime",
+        "storage"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "lance-query",
+      "parent": "planner",
+      "filename": "lance-dataset-query-planner-internals.svg",
+      "nodeIds": [
+        "filter",
+        "knn",
+        "limit",
+        "projection",
+        "scan",
+        "sort",
+        "take"
+      ],
+      "closedView": true
+    },
+    {
+      "example": "lance-query",
+      "parent": "bridge",
+      "filename": "lance-dataset-query-bridge-internals.svg",
+      "nodeIds": [
+        "arrow",
+        "channel",
+        "reader",
+        "scanner",
+        "stream"
+      ],
+      "closedView": true
+    }
+  ]
+}

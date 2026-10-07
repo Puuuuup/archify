@@ -10,8 +10,8 @@
     "bytes": 14199
   },
   "artifact": {
-    "sha256": "fab727f145009e53e4113d9afd9da79e4d45e57e2a35fff184eee03c16d44629",
-    "bytes": 860400
+    "sha256": "a4427f9a28765cc4d7f697c258dde2791fb4ed90139485c5316a26ef73204aea",
+    "bytes": 862562
   },
   "gates": {
     "validate": "pass",
@@ -23,7 +23,7 @@
     "url": "https://github.com/ByteDance-Seed/Bagel",
     "revision": "a2fa77dd8caeefc41e6607ae0ec17408d3f4ee9f"
   },
-  "generatorCommit": "4114636795e5405bfd4fab82fd5326956fa514ab",
+  "generatorCommit": "2b380808737f5582a36b0e4b7d34d150aed07d18",
   "method": "Archify finalize with the pinned official checkout and a real Chrome browser",
   "visualReview": "not-requested"
 }

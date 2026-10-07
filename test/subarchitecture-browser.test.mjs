@@ -848,10 +848,15 @@ test('all authored children download independently without opening a child view'
       assert.match(download.suggestedFilename, new RegExp(parentId + '-internals\\.svg$'));
       const output = path.join(downloads, download.suggestedFilename);
       const deadline = Date.now() + 5000;
-      while (!fs.existsSync(output) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25));
-      assert.ok(fs.existsSync(output), 'Chrome must write each child SVG');
+      let downloaded = '';
+      while (Date.now() < deadline) {
+        if (fs.existsSync(output)) downloaded = fs.readFileSync(output, 'utf8');
+        if (downloaded.trimEnd().endsWith('</svg>')) break;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      assert.ok(downloaded.trimEnd().endsWith('</svg>'), 'Chrome must finish writing each child SVG');
       const expectedIds = input.components.find(c => c.id === parentId).subarchitecture.components.map(c => c.id).sort();
-      const actualIds = [...fs.readFileSync(output, 'utf8').matchAll(/data-node-id="([^"]+)"/g)].map(m => m[1]).sort();
+      const actualIds = [...downloaded.matchAll(/data-node-id="([^"]+)"/g)].map(m => m[1]).sort();
       assert.deepEqual(actualIds, expectedIds);
       assert.deepEqual(state.nodeIds, expectedIds);
       assert.equal(state.child, null);
