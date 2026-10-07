@@ -306,9 +306,9 @@ summarized at parent level; that duplication is intentional because the two
 graphs answer questions at different scopes.
 
 The drill-down is a Viewer inspection surface only. Print and embed continue
-to use the canonical parent SVG. Exports default to the main architecture; when
-a child graph is open, an explicit current-subarchitecture target may export
-the exact mounted child graph through the canonical export cleanup path. There
+to use the canonical parent SVG. Exports default to the main architecture. Each
+authored subarchitecture is also available by name without opening it. Its
+verified template is exported through the canonical export cleanup path. There
 is no combined parent-and-child export contract, and Route, Reachability, and
 WebM remain parent-only. On the ordinary Viewer surface, focusing the parent
 component behaves exactly as before and exposes an explicit internals action in

@@ -1588,6 +1588,8 @@
         if (chip.hidden || !target || typeof target.closest !== 'function' || chip.contains(target)) return;
         if (container.getAttribute('data-just-panned') === 'true') return;
         if (target.closest('.subarchitecture-drawer')) return;
+        if (document.querySelector('template[data-subarchitecture-parent]') &&
+            target.closest('#btn-export, #export-menu, a[data-archify-download]')) return;
         if (document.documentElement.getAttribute('data-subarchitecture-open') === 'true' &&
             target.closest('.toolbar, a[data-archify-download]')) return;
         if (target.closest('[data-node-id], [data-relationship-hit-key], .overview-map')) return;

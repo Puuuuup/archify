@@ -47,7 +47,7 @@
 
 The `labs/subarchitecture` branch adds optional views of component internals. The main diagram stays the overview. Select a component and choose **Open internal architecture** in Semantic Passport. Its child expands below the main diagram. **Back to model** restores your place and selection.
 
-In **Export**, choose **Main architecture** or **Current subarchitecture**. Each target produces its own file. A child export contains only that child's components. Diagrams without children keep the existing viewer and export behavior.
+In **Export**, choose **Main architecture** or any named subarchitecture. You can export a child without opening it. Each target produces its own file. A child export contains only that child's components. Diagrams without children keep the existing viewer and export behavior.
 
 | Example | Explore |
 | --- | --- |

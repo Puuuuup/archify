@@ -19,6 +19,7 @@
       var SHARE_CARD_PADDING = 40;
       var SHARE_CARD_HEADER = 124;
       var exportTarget = 'main';
+      var exportParentId = null;
 
       function exportError(key, values) {
         var error = new Error(viewerText(key, values));
@@ -62,35 +63,49 @@
         };
       }
 
-      function subarchitectureExportDescriptor() {
-        var drawer = document.getElementById('subarchitecture-drawer');
-        var mount = document.getElementById('subarchitecture-mount');
-        var roots = mount ? Array.prototype.slice.call(mount.querySelectorAll(':scope > svg')) : [];
-        var activeParentId = Archify.subarchitecture && typeof Archify.subarchitecture.active === 'function'
-          ? Archify.subarchitecture.active()
-          : null;
-        if (!drawer || drawer.hidden || document.documentElement.getAttribute('data-subarchitecture-open') !== 'true' ||
-            typeof activeParentId !== 'string' || !activeParentId || !mount || mount.children.length !== 1 ||
-            roots.length !== 1 || !roots[0].isConnected) return null;
-        var titleNode = document.getElementById('subarchitecture-title');
+      function subarchitectureExportDescriptor(parentId) {
+        var inspected = inspectSubarchitectureTemplate(parentId);
+        if (!inspected) return null;
+        var parents = Array.prototype.filter.call(canonicalDiagramSvg().querySelectorAll('[data-node-id]'), function (node) {
+          return node.getAttribute('data-node-id') === parentId;
+        });
+        if (parents.length !== 1) return null;
+        var childSvg = inspected.svg.cloneNode(true);
+        var box = childSvg.viewBox.baseVal;
+        if (![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.width <= 0 || box.height <= 0) return null;
+        childSvg.setAttribute('data-preset', document.documentElement.getAttribute('data-preset') || 'classic');
+        childSvg.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') || 'dark');
         var mainBase = diagramFilename();
-        var parentSegment = filenameSegment(activeParentId, 'subarchitecture');
+        var parentSegment = filenameSegment(parentId, 'subarchitecture');
         var filename = mainBase === parentSegment || mainBase.slice(-(parentSegment.length + 1)) === '-' + parentSegment
           ? mainBase + '-internals'
           : mainBase + '-' + parentSegment + '-internals';
         return {
           target: 'subarchitecture',
-          sourceSvg: roots[0],
+          sourceSvg: childSvg,
           filename: filename,
-          title: titleNode ? titleNode.textContent : viewerText('viewer.subarchitecture.title'),
+          title: inspected.template.getAttribute('data-subarchitecture-title') || viewerText('viewer.subarchitecture.title'),
           subtitle: viewerText('viewer.export.target.subarchitecture.hint'),
-          parentId: activeParentId
+          parentLabel: parents[0].getAttribute('data-node-label') || parentId,
+          parentId: parentId
         };
+      }
+
+      function subarchitectureExportTargets() {
+        var seen = Object.create(null);
+        return Array.prototype.reduce.call(document.querySelectorAll('template[data-subarchitecture-parent]'), function (targets, template) {
+          var parentId = template.getAttribute('data-subarchitecture-parent');
+          if (seen[parentId]) return targets;
+          seen[parentId] = true;
+          var descriptor = subarchitectureExportDescriptor(parentId);
+          if (descriptor) targets.push(descriptor);
+          return targets;
+        }, []);
       }
 
       function captureExportDescriptor() {
         if (exportTarget === 'subarchitecture') {
-          var descriptor = subarchitectureExportDescriptor();
+          var descriptor = subarchitectureExportDescriptor(exportParentId);
           if (!descriptor) throw exportError('viewer.export.error.subarchitectureUnavailable');
           return descriptor;
         }
@@ -1103,6 +1118,8 @@
       var targetSelector = document.getElementById('export-target-selector');
       var mainTargetItem = targetSelector.querySelector('button[data-export-target="main"]');
       var subarchitectureTargetItem = targetSelector.querySelector('button[data-export-target="subarchitecture"]');
+      var childTargetItems = [];
+      subarchitectureTargetItem.remove();
       var routeShareItem = menu.querySelector('button[data-action="route-share-card"]');
       var reachShareItem = menu.querySelector('button[data-action="reach-share-card"]');
       var motionItem = menu.querySelector('button[data-format="webm"]');
@@ -1138,18 +1155,33 @@
       }
 
       function syncExportTarget() {
-        var subarchitecture = subarchitectureExportDescriptor();
-        var available = !!subarchitecture;
+        var children = subarchitectureExportTargets();
+        var available = children.length > 0;
         targetSelector.hidden = !available;
         mainTargetItem.hidden = !available;
-        subarchitectureTargetItem.hidden = !available;
-        subarchitectureTargetItem.disabled = !available;
-        subarchitectureTargetItem.title = available
-          ? ''
-          : viewerText('viewer.export.target.subarchitectureUnavailable');
-        if (!available && exportTarget === 'subarchitecture') exportTarget = 'main';
+        childTargetItems = childTargetItems.filter(function (button) {
+          var exists = children.some(function (child) { return child.parentId === button.getAttribute('data-export-parent'); });
+          if (!exists) button.remove();
+          return exists;
+        });
+        if (exportTarget === 'subarchitecture' && !children.some(function (child) { return child.parentId === exportParentId; })) {
+          exportTarget = 'main';
+          exportParentId = null;
+        }
         mainTargetItem.setAttribute('aria-checked', exportTarget === 'main' ? 'true' : 'false');
-        subarchitectureTargetItem.setAttribute('aria-checked', exportTarget === 'subarchitecture' ? 'true' : 'false');
+        children.forEach(function (child) {
+          var button = childTargetItems.find(function (item) { return item.getAttribute('data-export-parent') === child.parentId; });
+          if (!button) {
+            button = subarchitectureTargetItem.cloneNode(true);
+            button.setAttribute('data-export-parent', child.parentId);
+            button.hidden = false;
+            targetSelector.appendChild(button);
+            childTargetItems.push(button);
+          }
+          button.querySelector('strong').textContent = child.title;
+          button.querySelector('.hint').textContent = viewerText('viewer.export.target.subarchitecture') + ' · ' + child.parentLabel;
+          button.setAttribute('aria-checked', exportTarget === 'subarchitecture' && exportParentId === child.parentId ? 'true' : 'false');
+        });
         var childShare = document.getElementById('subarchitecture-share-card');
         if (exportTarget === 'subarchitecture' && !childShare) {
           childShare = document.createElement('button');
@@ -1167,9 +1199,14 @@
         return exportTarget;
       }
 
-      function selectExportTarget(target) {
+      function selectExportTarget(target, parentId) {
         if (target !== 'main' && target !== 'subarchitecture') return false;
-        if (target === 'subarchitecture' && !subarchitectureExportDescriptor()) return false;
+        if (target === 'subarchitecture') {
+          var children = subarchitectureExportTargets();
+          parentId = parentId || exportParentId || (Archify.subarchitecture && Archify.subarchitecture.active()) || (children[0] && children[0].parentId);
+          if (!subarchitectureExportDescriptor(parentId)) return false;
+          exportParentId = parentId;
+        } else exportParentId = null;
         exportTarget = target;
         syncExportTarget();
         return true;
@@ -1488,7 +1525,7 @@
       menu.addEventListener('click', function (e) {
         var targetBtn = e.target.closest('button[data-export-target]');
         if (targetBtn && !targetBtn.disabled && !targetBtn.hidden) {
-          selectExportTarget(targetBtn.getAttribute('data-export-target'));
+          selectExportTarget(targetBtn.getAttribute('data-export-target'), targetBtn.getAttribute('data-export-parent'));
           targetBtn.focus();
           return;
         }
@@ -1519,7 +1556,8 @@
         syncReachShare: syncReachShareItem,
         syncTarget: syncExportTarget,
         selectTarget: selectExportTarget,
-        target: function () { return exportTarget; }
+        target: function () { return exportTarget; },
+        targetParent: function () { return exportParentId; }
       };
 
       // Auto-open on page load for demo/screenshot purposes: ?openExport=1

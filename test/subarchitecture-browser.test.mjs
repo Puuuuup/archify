@@ -576,7 +576,7 @@ test('main and child export targets have readable labels on laptop and narrow sc
           });
         })()`);
         assert.deepEqual(targets.map((target) => target.target), ['main', 'subarchitecture']);
-        assert.deepEqual(targets.map((target) => target.text), ['Main architecture', 'Current subarchitecture']);
+        assert.deepEqual(targets.map((target) => target.text), ['Main architecture', 'Transformer Layer Internals']);
         for (const target of targets) {
           const context = `${width}x${height} ${theme} ${target.target}`;
           assert.ok(target.width > 80 && target.height > 10, context);
@@ -592,7 +592,7 @@ test('main and child export targets have readable labels on laptop and narrow sc
   }
 });
 
-test('export target downloads only the open subarchitecture and strips local viewer state', {
+test('export target downloads only the selected subarchitecture and strips local viewer state', {
   skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real browser regression.',
 }, async () => {
   const browser = new ChromeVisualBrowser(chromePath);
@@ -742,7 +742,7 @@ test('export target downloads only the open subarchitecture and strips local vie
       };
     })()`);
 
-    assert.deepEqual(receipt.beforeOpen, { selectorHidden: true, target: 'main' });
+    assert.deepEqual(receipt.beforeOpen, { selectorHidden: false, target: 'main' });
     assert.deepEqual(receipt.afterOpen, {
       selectorHidden: false,
       target: 'main',
@@ -787,15 +787,129 @@ test('export target downloads only the open subarchitecture and strips local vie
       parentFocus: 'transformer',
     });
     assert.deepEqual(receipt.afterClose, {
-      selectorHidden: true,
+      selectorHidden: false,
       target: 'main',
-      localHidden: true,
+      localHidden: false,
       parentFocus: 'transformer',
     });
     assert.deepEqual(receipt.alerts, []);
   } finally {
     await browser.close();
   }
+});
+
+test('all authored children download independently without opening a child view', {
+  skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real browser regression.',
+}, async () => {
+  const browser = new ChromeVisualBrowser(chromePath);
+  const downloads = fs.mkdtempSync(path.join(scratch, 'closed-child-download-'));
+  const input = JSON.parse(fs.readFileSync(path.join(repoRoot, 'website/examples/bagel-inference.architecture.json'), 'utf8'));
+  try {
+    await browser.cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads, eventsEnabled: true });
+    const sessionId = await load(browser, renderBagel(), { width: 1366, height: 768 });
+    const before = await evaluate(browser, sessionId, `(async function () {
+      window.exportBlobs = [];
+      window.nativeDownloadClicks = [];
+      var create = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = function (blob) { window.exportBlobs.push(blob); return create(blob); };
+      document.addEventListener('click', function (event) {
+        var anchor = event.target.closest('a[download]');
+        if (anchor) window.nativeDownloadClicks.push(anchor.download);
+      }, true);
+      document.documentElement.setAttribute('data-preset', 'blueprint');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      await Archify.layoutStability.whenStable();
+      Archify.focus.set('context', { toggle: false, updateUrl: false });
+      var scroll = [scrollX, scrollY];
+      document.getElementById('btn-export').click();
+      return { scroll: scroll, hash: location.hash, parent: Archify.focus.active(), target: Archify.exportMenu.target(),
+        labels: Array.from(document.querySelectorAll('#export-target-selector button')).filter(b => !b.hidden).map(b => b.querySelector('strong').textContent) };
+    })()`);
+    assert.deepEqual(before.labels, ['Main architecture', 'BAGEL Context Assembly', 'BAGEL MoT Decoder Layer']);
+    assert.equal(before.target, 'main');
+    assert.equal(before.parent, 'context');
+    for (const parentId of ['context', 'mot']) {
+      const started = browser.cdp.waitFor('Browser.downloadWillBegin');
+      started.catch(() => {});
+      const state = await evaluate(browser, sessionId, `(async function () {
+        document.getElementById('btn-export').click();
+        if (!Archify.exportMenu.isOpen()) document.getElementById('btn-export').click();
+        document.querySelector('#export-menu [data-export-parent="${parentId}"]').click();
+        await Archify.exportMenu.run('svg');
+        var blob = window.exportBlobs.filter(b => b.type.startsWith('image/svg+xml')).at(-1);
+        var svg = new DOMParser().parseFromString(await blob.text(), 'image/svg+xml').documentElement;
+        return { parent: Archify.focus.active(), child: Archify.subarchitecture.active(), targetParent: Archify.exportMenu.targetParent(),
+          scroll: [scrollX, scrollY], hash: location.hash, preset: svg.getAttribute('data-preset'),
+          mounted: document.querySelectorAll('#subarchitecture-mount > svg').length,
+          nodeIds: Array.from(svg.querySelectorAll('[data-node-id]')).map(n => n.getAttribute('data-node-id')).sort(),
+          clean: document.documentElement.getAttribute('data-last-export-canonical') };
+      })()`);
+      const download = await started;
+      assert.match(download.suggestedFilename, new RegExp(parentId + '-internals\\.svg$'));
+      const output = path.join(downloads, download.suggestedFilename);
+      const deadline = Date.now() + 5000;
+      while (!fs.existsSync(output) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25));
+      assert.ok(fs.existsSync(output), 'Chrome must write each child SVG');
+      const expectedIds = input.components.find(c => c.id === parentId).subarchitecture.components.map(c => c.id).sort();
+      const actualIds = [...fs.readFileSync(output, 'utf8').matchAll(/data-node-id="([^"]+)"/g)].map(m => m[1]).sort();
+      assert.deepEqual(actualIds, expectedIds);
+      assert.deepEqual(state.nodeIds, expectedIds);
+      assert.equal(state.child, null);
+      assert.equal(state.mounted, 0);
+      assert.equal(state.parent, before.parent);
+      assert.equal(state.targetParent, parentId);
+      assert.equal(state.preset, 'blueprint');
+      assert.equal(state.hash, before.hash);
+      assert.deepEqual(state.scroll, before.scroll);
+      assert.equal(state.clean, 'true');
+    }
+    const raster = await evaluate(browser, sessionId, `(async function () {
+      await Archify.exportMenu.run('png');
+      var blob = window.exportBlobs.filter(b => b.type === 'image/png').at(-1);
+      var bitmap = await createImageBitmap(blob);
+      var template = document.querySelector('template[data-subarchitecture-parent="mot"]').content.querySelector('svg');
+      var box = template.viewBox.baseVal;
+      var size = [bitmap.width, bitmap.height]; bitmap.close();
+      return { size: size, expected: [box.width * 4, box.height * 4], child: Archify.subarchitecture.active(), parent: Archify.focus.active(), clicks: window.nativeDownloadClicks };
+    })()`);
+    assert.deepEqual(raster.size, raster.expected);
+    assert.equal(raster.child, null);
+    assert.equal(raster.parent, 'context');
+    assert.equal(raster.clicks.length, 3, 'every download uses the native anchor click');
+  } finally { await browser.close(); }
+});
+
+test('export selection stays independent of the open child and survives closing it', {
+  skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real browser regression.',
+}, async () => {
+  const browser = new ChromeVisualBrowser(chromePath);
+  try {
+    await browser.cdp.send('Browser.setDownloadBehavior', { behavior: 'deny' });
+    const sessionId = await load(browser, renderBagel());
+    const state = await evaluate(browser, sessionId, `(async function () {
+      window.lastSvg = null;
+      var create = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = function (blob) { if (blob.type.startsWith('image/svg+xml')) window.lastSvg = blob; return create(blob); };
+      Archify.exportMenu.selectTarget('subarchitecture', 'context');
+      Archify.focus.set('mot', { toggle: false, updateUrl: false });
+      Archify.subarchitecture.open('mot', { updateUrl: false });
+      await Archify.layoutStability.whenStable();
+      await Archify.exportMenu.run('svg');
+      var svg = new DOMParser().parseFromString(await window.lastSvg.text(), 'image/svg+xml').documentElement;
+      var open = { view: Archify.subarchitecture.active(), target: Archify.exportMenu.targetParent(),
+        nodeIds: Array.from(svg.querySelectorAll('[data-node-id]')).map(n => n.getAttribute('data-node-id')).sort() };
+      Archify.exportMenu.selectTarget('subarchitecture', 'mot');
+      Archify.subarchitecture.close({ updateUrl: false, restoreFocus: false });
+      await Archify.exportMenu.run('svg');
+      var closedSvg = new DOMParser().parseFromString(await window.lastSvg.text(), 'image/svg+xml').documentElement;
+      return { open: open, closed: { view: Archify.subarchitecture.active(), target: Archify.exportMenu.targetParent(),
+        nodeIds: Array.from(closedSvg.querySelectorAll('[data-node-id]')).map(n => n.getAttribute('data-node-id')).sort() } };
+    })()`);
+    const input = JSON.parse(fs.readFileSync(path.join(repoRoot, 'website/examples/bagel-inference.architecture.json'), 'utf8'));
+    const ids = parent => input.components.find(c => c.id === parent).subarchitecture.components.map(c => c.id).sort();
+    assert.deepEqual(state.open, { view: 'mot', target: 'context', nodeIds: ids('context') });
+    assert.deepEqual(state.closed, { view: null, target: 'mot', nodeIds: ids('mot') });
+  } finally { await browser.close(); }
 });
 
 test('a real child SVG download preserves parent selection through export and return', {
@@ -855,7 +969,7 @@ test('a real child SVG download preserves parent selection through export and re
   }
 });
 
-test('subarchitecture export fails closed when the mounted export root is no longer unique', {
+test('subarchitecture export fails closed when the selected template is no longer unique', {
   skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real browser regression.',
 }, async () => {
   const browser = new ChromeVisualBrowser(chromePath);
@@ -865,12 +979,14 @@ test('subarchitecture export fails closed when the mounted export root is no lon
       var alerts = [];
       var downloads = 0;
       window.alert = function (message) { alerts.push(String(message)); };
-      HTMLAnchorElement.prototype.click = function () { downloads += 1; };
+      document.addEventListener('click', function (event) {
+        if (event.target.closest('a[download]')) downloads += 1;
+      }, true);
       Archify.focus.set('transformer', { toggle: false, updateUrl: false });
       Archify.subarchitecture.open('transformer', { updateUrl: false });
       var selected = Archify.exportMenu.selectTarget('subarchitecture');
-      var mount = document.getElementById('subarchitecture-mount');
-      mount.appendChild(mount.querySelector(':scope > svg').cloneNode(true));
+      var template = document.querySelector('template[data-subarchitecture-parent="transformer"]');
+      template.after(template.cloneNode(true));
       await Archify.exportMenu.run('svg');
       return {
         selected: selected,

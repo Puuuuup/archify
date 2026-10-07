@@ -112,10 +112,9 @@ test('export target stays additive and serializes only the selected graph', () =
   assert.match(html, /id="export-target-selector"[^>]+role="group"[^>]+hidden/);
   assert.match(html, /data-export-target="main"[^>]+role="menuitemradio"[^>]+aria-checked="true"/);
   assert.match(html, /data-export-target="subarchitecture"[^>]+role="menuitemradio"[^>]+aria-checked="false"/);
-  assert.match(html, /function subarchitectureExportDescriptor\(\)/);
-  assert.match(html, /mount\.children\.length !== 1/);
-  assert.match(html, /roots\.length !== 1 \|\| !roots\[0\]\.isConnected/);
-  assert.match(html, /target: 'subarchitecture',[\s\S]*sourceSvg: roots\[0\]/);
+  assert.match(html, /function subarchitectureExportDescriptor\(parentId\)/);
+  assert.match(html, /inspectSubarchitectureTemplate\(parentId\)/);
+  assert.match(html, /target: 'subarchitecture',[\s\S]*sourceSvg: childSvg/);
   assert.match(html, /serializeSvg\(1, \{ theme: svgTheme, sourceSvg: descriptor\.sourceSvg \}\)/);
   assert.match(html, /rasterize\(format, descriptor\)/);
   assert.match(html, /renderShareCard\(descriptor\)/);
